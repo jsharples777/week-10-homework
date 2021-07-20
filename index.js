@@ -27,8 +27,6 @@ class MarkdownRenderer {
 
 
 
-
-
     }
 
     renderLicenseBadgeWithLink(license) {
