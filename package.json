@@ -1,12 +1,12 @@
 {
-  "name": "static-site",
+  "name": "week-10-homework",
   "version": "1.0.0",
-  "description": "",
+  "description": "A README.md generator",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
-  "author": "",
+  "author": "Jim Sharples",
   "license": "ISC",
   "dependencies": {
     "inquirer": "^6.3.1"
