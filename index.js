@@ -1,11 +1,10 @@
 const inquirer = require('inquirer');
-const emailValidator = require('email-validator');
+const fs = require('fs');
 
 class MarkdownRenderer {
     constructor(showLog = false) {
         this.showLog = showLog;
         this.render = this.render.bind(this);
-        this.toc = [];
     }
 
     render(answers) {
@@ -14,19 +13,43 @@ class MarkdownRenderer {
             console.log(answers);
         }
         let buffer = "";
-        let tableOfContentsBuffer = "# Table of Contents\r\n";
+        let tableOfContentsBuffer = "\r\n# Table of Contents\r\n";
 
         // add the title
-        buffer += "# " + answers.title + "\r\n";
+        buffer += "# " + answers.title + "      " + this.renderLicenseBadgeWithLink(answers.license) + "\r\n";
         // add a table of contents at the end after the time
         let endOfTitlePosition = buffer.length;
         //  add the description
         buffer += "# Project Description\r\n" + answers.description + "\r\n";
         tableOfContentsBuffer += "-[Project Description](#project-description)\r\n";
         //  add the installation instructions
+        buffer += "# Installation Instructions\r\n\r\n```\r\n\r\n" + answers.install + "\r\n```\r\n\r\n";
+        tableOfContentsBuffer += "-[Installation Instructions](#installation-instructions)\r\n";
+        //  add the usage instructions
+        buffer += "# Usage\r\n\r\n```\r\n\r\n" + answers.use + "\r\n\r\n```\r\n\r\n";
+        tableOfContentsBuffer += "-[Usage](#usage)\r\n";
+        //  add the contribution instructions
+        buffer += "# How to contribute\r\n\r\n```\r\n\r\n" + answers.contribute + "\r\n\r\n```\r\n\r\n";
+        tableOfContentsBuffer += "-[How To Contribute](#how-to-contribute)\r\n";
+        if (answers.test) {
+            //  add the testing instructions
+            buffer += "# Testing Instructions\r\n\r\n```\r\n\r\n" + answers.test + "\r\n\r\n```\r\n\r\n";
+            tableOfContentsBuffer += "-[Testing Instructions](#testing-instructions)\r\n";
+        }
+        //  add the question instructions
+        buffer += "# Questions\r\n\r\n```\r\n\r\n  GitHub: https://github.com/" + answers.username + "\r\nEmail: " + answers.email + "\r\n\r\n```\r\n\r\n";
+        tableOfContentsBuffer += "-[Questions](#questions)\r\n";
+        //  add the license attribution text
+        buffer += "# License\r\n\r\n" + this.renderLicenseAttribution(answers.license)
+        tableOfContentsBuffer += "-[License](#license)\r\n\r\n";
 
+        // add the TOC to the buffer in the correct location
+        let beforeTOC = buffer.substr(0,endOfTitlePosition);
+        let afterTOC = buffer.substr(endOfTitlePosition);
 
-
+        let markdown = beforeTOC + tableOfContentsBuffer + afterTOC;
+        if (this.showLog) console.log(markdown);
+        return markdown;
     }
 
     renderLicenseBadgeWithLink(license) {
@@ -36,9 +59,24 @@ class MarkdownRenderer {
             case "wtfpl": return "[![License: CC0-1.0](https://licensebuttons.net/l/zero/1.0/80x15.png)](http://creativecommons.org/publicdomain/zero/1.0/)";
             case "gpl-3.0": return "[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0";
             case "unlicense": return "[![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](http://unlicense.org/)";
+            case "mit": return "[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)";
             case "none": return "";
 
         }
+    }
+
+    renderLicenseAttribution(license) {
+        switch(license) {
+            case "apache-2.0": return "### [Apache 2.0 License](https://opensource.org/licenses/Apache-2.0\r\nA permissive license whose main conditions require preservation of copyright and license notices. Contributors provide an express grant of patent rights. Licensed works, modifications, and larger works may be distributed under different terms and without source code.)";
+            case "cc": return "### [The Creative Commons CC0 Public Domain Dedication](http://creativecommons.org/publicdomain/zero/1.0/) \r\nWaives copyright interest in a work you've created and dedicates it to the world-wide public domain. Use CC0 to opt out of copyright entirely and ensure your work has the widest reach. As with the Unlicense and typical software licenses, CC0 disclaims warranties. CC0 is very similar to the Unlicense.";
+            case "wtfpl": return "### [The Do What The F*uck You Want License](http://creativecommons.org/publicdomain/zero/1.0/)\r\nEveryone is permitted to copy and distribute verbatim or modified copies of this license document, and changing it is allowed as long as the name is changed."
+            case "gpl-3.0": return "### [Gnu Public License 3.0](https://www.gnu.org/licenses/gpl-3.0)\r\nPermissions of this strong copyleft license are conditioned on making available complete source code of licensed works and modifications, which include larger works using a licensed work, under the same license. Copyright and license notices must be preserved. Contributors provide an express grant of patent rights.";
+            case "unlicense": return "### [Unlicense](http://unlicense.org/)\r\nA license with no conditions whatsoever which dedicates works to the public domain. Unlicensed works, modifications, and larger works may be distributed under different terms and without source code.";
+            case "mit": return "### [MIT License](https://opensource.org/licenses/MIT)\r\nA short and simple permissive license with conditions only requiring preservation of copyright and license notices. Licensed works, modifications, and larger works may be distributed under different terms and without source code.";
+            case "none": return "No license selected.";
+
+        }
+
     }
 }
 
@@ -66,6 +104,15 @@ class Validator {
 
     canBeEmptyString(userInput, answersHash) {
         return true;
+    }
+
+    isEmailAddress(userInput, answersHash) {
+        if (this.showLog) {
+            console.log("Validator: check for valid email address");
+            console.log(userInput);
+            console.log(answersHash);
+        }
+        return /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()\.,;\s@\"]+\.{0,1})+([^<>()\.,;:\s@\"]{2,}|[\d\.]+))$/.test(userInput);
     }
 }
 
@@ -148,7 +195,7 @@ class ReadmeGenerator {
         this.transformer = new Transformer(showDebugOutput);
         this.when = new When(showDebugOutput);
 
-        this.renderer = new MarkdownRenderer();
+        this.renderer = new MarkdownRenderer(showDebugOutput);
     }
 
     init() {
@@ -168,7 +215,7 @@ class ReadmeGenerator {
             },
             {
                 name: "description",
-                type: "editor",
+                type: "input",
                 message: "Please provide a description for the project:",
                 default: "My Project Description",
                 validate: this.validator.ensureNotEmptyString,
@@ -181,7 +228,7 @@ class ReadmeGenerator {
             },
             {
                 name: "install",
-                type: "editor",
+                type: "input",
                 message: "Please provide a list of installation instructions for the project:",
                 default: "Installation Instructions",
                 validate: this.validator.ensureNotEmptyString,
@@ -194,9 +241,9 @@ class ReadmeGenerator {
             },
             {
                 name: "use",
-                type: "editor",
+                type: "input",
                 message: "Please provide a list of how-to use the project:",
-                default: "Installation Instructions",
+                default:"How to use",
                 validate: this.validator.ensureNotEmptyString,
                 filter: this.filter.defaultFilter,
                 transformer: this.transformer.defaultTransformer,
@@ -247,6 +294,11 @@ class ReadmeGenerator {
                         short: "CC"
                     },
                     {
+                        name: "MIT",
+                        value: "mit",
+                        short: "MIT"
+                    },
+                    {
                         name: "Do What The F*ck You Want To Public License",
                         value: "wtfpl",
                         short: "WTFPL"
@@ -290,11 +342,11 @@ class ReadmeGenerator {
                 type: "input",
                 message: "Email address:",
                 default: "My email",
-                validate: emailValidator,
-                filter: this.filter.defaultFilter,
-                transformer: this.transformer.defaultTransformer,
+                validate: this.validator.isEmailAddress,
+                //filter: this.filter.defaultFilter,
+                //transformer: this.transformer.defaultTransformer,
                 when: this.when.isMandatoryQuestion,
-                pageSize: 10,
+                //pageSize: 10,
                 askAnswered: true,
                 loop: true,
             },
@@ -332,6 +384,10 @@ class ReadmeGenerator {
 
     writeToFile(filename, data) {
         console.log(`Writing to file ${filename}`);
+        let markdownFile = fs.createWriteStream(filename, {flags: 'w'});
+        markdownFile.write(data);
+        markdownFile.close();
+
 
     }
 
